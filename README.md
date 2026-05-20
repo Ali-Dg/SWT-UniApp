@@ -1,1 +1,1 @@
-# SWT-UniApp
+# my-study-app
