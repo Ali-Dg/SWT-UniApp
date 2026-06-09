@@ -1,288 +1,196 @@
 # MyStudyApp
 
-## 1. Projektbeschreibung
+## 1. Projektziel
 
-MyStudyApp ist ein Softwaretechnik-2-Projekt zur digitalen Organisation des Studiums.
+MyStudyApp ist eine verteilte Web-/Backend-Anwendung für die Organisation des Studiums. Die Anwendung besitzt ein modernes responsives Web-/PWA-Frontend, zwei Spring-Boot-Backends, eine MariaDB-Datenbank und einen MQTT-Broker.
 
-Die Anwendung ist als verteilte Web-/Backend-Anwendung aufgebaut. Es gibt zwei Spring-Backend-Systeme, einen MQTT-Broker, eine MariaDB-Datenbank, ein vorbereitetes Web-/PWA-Frontend und eine UML-Dokumentation.
+Studierende können folgende Bereiche nutzen:
 
-Die beiden Backend-Systeme kommunizieren primär asynchron über den MQTT-Broker.
+- Stundenplan
+- Kurse
+- Termine
+- Dokumente
+- Erinnerungen
+- Benachrichtigungen
 
----
+## 2. Vollständige Architektur
 
-## 2. Ziel des Projekts
+```text
+Browser mit Web-/PWA-Frontend
+        |
+        | REST / JSON
+        v
+Backend Studium :8080 ---- speichert ----> MariaDB :3306
+        |
+        | MQTT-Ereignis über mystudyapp/termine
+        v
+Eclipse Mosquitto :1883
+        |
+        v
+Backend Benachrichtigung :8081 ---- speichert ----> MariaDB :3306
+```
 
-Ziel ist eine einfache, saubere und prüfungsnahe technische Grundlage für eine Studienverwaltungs-App.
+## 3. Wichtige technische Entscheidungen
 
-Wichtige Ziele:
+| Thema | Umsetzung |
+|---|---|
+| Backend | Java 21 und Spring Boot |
+| Build | Maven-Multi-Modul-Projekt |
+| Frontend | HTML5, CSS3 und JavaScript |
+| PWA | Manifest, Service Worker und App-Symbole |
+| Kommunikation | REST und asynchrones MQTT |
+| Datenhaltung | MariaDB mit SQL-Initialisierung |
+| Datenstruktur | selbst programmierte `EigeneListe` mit `ListenElement`, ohne Generics und ohne gemischte Listen |
+| Infrastruktur | Docker Compose |
+| UML | PlantUML-Dateien und Erzeugungsskript |
 
-- Studieninformationen verwalten.
-- Kurse, Stundenpläne, Termine und Dokumente bereitstellen.
-- Termin-Ereignisse erzeugen und über MQTT veröffentlichen.
-- Termin-Ereignisse im zweiten Backend empfangen.
-- Erinnerungen und Benachrichtigungen vorbereiten.
-- REST-Schnittstellen für die Businesslogik bereitstellen.
-- Die Backend-Struktur nach Vertical Slicing aufbauen.
-- Die Architektur mit UML dokumentieren.
+## 4. EigeneListe statt ArrayList
 
----
+In beiden Backends gibt es eine selbst programmierte Liste:
 
-## 3. Projektstruktur
+```text
+gemeinsam/liste/
+├── EigeneListe.java
+└── ListenElement.java
+```
+
+Die Backends verwenden intern keine `ArrayList`. Die `EigeneListe` enthält nur die Funktionen, die im Projekt wirklich gebraucht werden:
+
+- Werte am Ende hinzufügen,
+- Werte über eine Stelle lesen,
+- die Anzahl liefern.
+
+Im Backend Benachrichtigung kann zusätzlich ein MQTT-Beobachter entfernt werden. Dadurch wird der Beobachter beim Start sauber angemeldet und beim Beenden sauber abgemeldet. Unbenutzte Listenmethoden wurden entfernt.
+
+Die Liste verwendet keine Generics und keine Java-Listenklasse. Die zentrale `EigeneListe` ist nur intern sichtbar. Fachlich getrennte Klassen wie `TerminListe`, `KursListe` und `DokumentListe` verhindern gemischte Inhalte. Für REST werden die Werte erst an der Ausgabegrenze in fachliche Felder wie `Termin[]` umgewandelt.
+
+## 5. MariaDB-Anbindung
+
+MariaDB ist nicht mehr nur vorbereitet. Beide Backends verwenden die Datenbank aktiv.
+
+Tabellen des Backend Studium:
+
+```text
+stundenplan
+kurs
+termin
+dokument
+```
+
+Tabellen des Backend Benachrichtigung:
+
+```text
+erinnerung
+benachrichtigung
+```
+
+Die Dateien `schema.sql` erstellen fehlende Tabellen. Die Datei `data.sql` des Backend Studium fügt übersichtliche Startdaten ein, ohne vorhandene Daten zu überschreiben.
+
+## 6. Projektstruktur
 
 ```text
 my-study-app/
 ├── pom.xml
 ├── README.md
-├── .gitignore
+├── starten.sh
+├── stoppen.sh
+├── projekt_pruefen.sh
 │
 ├── backend-studium/
 │   ├── pom.xml
-│   └── src/main/java/de/fhdo/swt2/backendstudium/
-│       ├── BackendStudiumAnwendung.java
-│       ├── dokument/
-│       ├── ereignis/
-│       ├── fassade/
-│       ├── kurs/
-│       ├── mqtt/
-│       ├── stundenplan/
-│       └── termin/
+│   └── src/main/
+│       ├── java/de/fhdo/swt2/backendstudium/
+│       │   ├── gemeinsam/liste/
+│       │   ├── dokument/
+│       │   ├── ereignis/
+│       │   ├── fassade/
+│       │   ├── konfiguration/
+│       │   ├── kurs/
+│       │   ├── mqtt/
+│       │   ├── stundenplan/
+│       │   └── termin/
+│       └── resources/
+│           ├── application.properties
+│           ├── schema.sql
+│           └── data.sql
 │
 ├── backend-benachrichtigung/
 │   ├── pom.xml
-│   └── src/main/java/de/fhdo/swt2/backendbenachrichtigung/
-│       ├── BackendBenachrichtigungAnwendung.java
-│       ├── benachrichtigung/
-│       ├── beobachter/
-│       ├── empfaenger/
-│       ├── erinnerung/
-│       ├── mqtt/
-│       └── terminereignis/
-│
-├── docs/
-│   ├── api.md
-│   ├── praktikum-1-2-kurzuebersicht.md
-│   ├── praktikum-3-abgabe.md
-│   ├── praktikum-4-abgabe.md
-│   └── uml/
+│   └── src/main/
+│       ├── java/de/fhdo/swt2/backendbenachrichtigung/
+│       │   ├── gemeinsam/liste/
+│       │   ├── benachrichtigung/
+│       │   ├── beobachter/
+│       │   ├── empfaenger/
+│       │   ├── erinnerung/
+│       │   ├── konfiguration/
+│       │   ├── mqtt/
+│       │   └── terminereignis/
+│       └── resources/
+│           ├── application.properties
+│           ├── schema.sql
+│           └── data.sql
 │
 ├── infrastructure/
 │   ├── docker-compose.yml
 │   └── mosquitto/config/mosquitto.conf
 │
-└── web-frontend/
-    └── README.md
+├── web-frontend/
+│   ├── index.html
+│   ├── style.css
+│   ├── app.js
+│   ├── manifest.json
+│   ├── service-worker.js
+│   ├── design/ui-konzept.png
+│   └── icons/
+│
+└── docs/
+    ├── api.md
+    ├── datenbank.md
+    ├── eigene-liste.md
+    ├── frontend.md
+    ├── startanleitung.md
+    ├── pruefbericht.md
+    └── uml/
 ```
 
----
+## 7. Einfachster Start
 
-## 4. Technologien
+Voraussetzungen:
 
-| Technologie | Zweck |
-|---|---|
-| Java 21 | Implementierung der Backend-Systeme |
-| Spring Boot | REST-Backends |
-| Spring Web | REST-Schnittstellen |
-| Spring Integration MQTT | MQTT-Anbindung |
-| Maven | Multi-Modul-Build |
-| Docker Compose | Start der Infrastruktur |
-| MariaDB | Datenbank |
-| Eclipse Mosquitto | MQTT-Broker |
-| PlantUML | UML-Dokumentation |
-| Web/PWA | vorbereitetes Frontend |
-
----
-
-## 5. Backend-Systeme
-
-### 5.1 Backend Studium
-
-Modul:
-
-```text
-backend-studium
-```
-
-Aufgabe:
-
-- REST-Schnittstellen für das Frontend bereitstellen.
-- Stundenpläne, Kurse, Termine und Dokumente liefern.
-- Neue Termine anlegen.
-- Beim Anlegen eines Termins ein Studium-Ereignis erzeugen.
-- Das Ereignis über MQTT veröffentlichen.
-
-Wichtige Fachmodule:
-
-| Modul | Aufgabe |
-|---|---|
-| `stundenplan` | Stundenplan-Endpunkte und Stundenplan-Logik |
-| `kurs` | Kurs-Endpunkte und Kurs-Logik |
-| `termin` | Termin-Endpunkte und Termin-Logik |
-| `dokument` | Dokument-Endpunkte und Dokument-Logik |
-| `ereignis` | Ereigniserzeugung mit Fabrikmethode |
-| `mqtt` | Senden von MQTT-Ereignissen |
-| `fassade` | einfache Schnittstelle über mehrere Dienste |
-
----
-
-### 5.2 Backend Benachrichtigung
-
-Modul:
-
-```text
-backend-benachrichtigung
-```
-
-Aufgabe:
-
-- MQTT-Ereignisse empfangen.
-- Termin-Ereignisse an Beobachter weitergeben.
-- Erinnerungen erstellen.
-- Benachrichtigungen erstellen und speichern.
-- REST-Schnittstellen für Erinnerungen und Benachrichtigungen bereitstellen.
-
-Wichtige Fachmodule:
-
-| Modul | Aufgabe |
-|---|---|
-| `mqtt` | MQTT-Empfang und Ereignisquelle |
-| `beobachter` | Beobachter-Interface |
-| `erinnerung` | Erinnerungslogik und Erinnerungs-API |
-| `benachrichtigung` | Benachrichtigungslogik, Ablage und API |
-| `terminereignis` | Datenklasse für Termin-Ereignisse |
-| `empfaenger` | Datenklasse für Empfänger |
-
----
-
-## 6. REST-Schnittstellen
-
-### Backend Studium
-
-| Methode | Pfad | Bedeutung |
-|---|---|---|
-| GET | `/api/stundenplan` | Stundenplan anzeigen |
-| GET | `/api/kurse` | Kurse anzeigen |
-| GET | `/api/termine` | Termine anzeigen |
-| POST | `/api/termine` | neuen Termin anlegen und MQTT-Ereignis senden |
-| GET | `/api/dokumente` | Dokumente anzeigen |
-| GET | `/api/studium/uebersicht` | Übersicht über mehrere Studiendaten |
-
-### Backend Benachrichtigung
-
-| Methode | Pfad | Bedeutung |
-|---|---|---|
-| GET | `/api/erinnerungen` | Erinnerungen anzeigen |
-| GET | `/api/benachrichtigungen` | Benachrichtigungen anzeigen |
-
----
-
-## 7. MQTT-Kommunikation
-
-Die Backends kommunizieren nicht direkt miteinander.
-
-Ablauf:
-
-```text
-1. Das Backend Studium legt einen Termin an.
-2. TerminDienst erzeugt ein StudiumEreignis.
-3. MqttEreignisSender veröffentlicht das Ereignis.
-4. Eclipse Mosquitto verteilt die Nachricht.
-5. Backend Benachrichtigung empfängt die Nachricht.
-6. MqttTerminEreignisQuelle informiert die Beobachter.
-7. ErinnerungDienst erstellt eine Erinnerung.
-8. BenachrichtigungDienst erstellt eine Benachrichtigung.
-```
-
-Standard-Topic:
-
-```text
-mystudyapp/termine
-```
-
----
-
-## 8. Entwurfsmuster aus Praktikum 3
-
-| Kategorie | Muster | Umsetzung |
-|---|---|---|
-| Strukturmuster | Fassade | `StudiumFassade` |
-| Erzeugungsmuster | Fabrikmethode | `StudiumEreignisFabrik`, `TerminEreignisFabrik`, `StudiumEreignis` |
-| Verhaltensmuster | Beobachter | `MqttTerminEreignisQuelle`, `TerminEreignisBeobachter`, `ErinnerungDienst` |
-
-Das Singleton-Muster wird nicht verwendet.
-
----
-
-## 9. Build
+- Docker Desktop ist geöffnet.
+- Java 21 ist installiert.
+- Maven ist installiert.
+- Python 3 ist installiert.
 
 Im Hauptordner ausführen:
 
 ```bash
-mvn clean install
+chmod +x starten.sh stoppen.sh projekt_pruefen.sh
+./starten.sh
 ```
 
-Erwartetes Ergebnis:
+Danach öffnen:
 
 ```text
-BUILD SUCCESS
+http://localhost:5500
 ```
 
----
+Das Skript startet automatisch in der richtigen Reihenfolge:
 
-## 10. Infrastruktur starten
+1. MariaDB und Eclipse Mosquitto,
+2. Maven-Build,
+3. Backend Benachrichtigung,
+4. Backend Studium,
+5. Frontend.
 
-Im Hauptordner ausführen:
+Beenden:
 
 ```bash
-docker compose -f infrastructure/docker-compose.yml up -d
+./stoppen.sh
 ```
 
-Prüfen:
-
-```bash
-docker compose -f infrastructure/docker-compose.yml ps
-```
-
-Erwartet:
-
-```text
-mystudyapp-mariadb   Up
-mystudyapp-mqtt      Up
-```
-
-Stoppen:
-
-```bash
-docker compose -f infrastructure/docker-compose.yml down
-```
-
----
-
-## 11. Backends starten
-
-Backend Studium:
-
-```bash
-cd backend-studium
-mvn spring-boot:run
-```
-
-Backend Benachrichtigung:
-
-```bash
-cd backend-benachrichtigung
-mvn spring-boot:run
-```
-
-Ports:
-
-| Backend | Port |
-|---|---|
-| Backend Studium | 8080 |
-| Backend Benachrichtigung | 8081 |
-
----
-
-## 12. Schnelle REST-Tests
+## 8. Manuelle REST-Tests
 
 ```bash
 curl http://localhost:8080/api/kurse
@@ -294,10 +202,20 @@ curl http://localhost:8081/api/erinnerungen
 curl http://localhost:8081/api/benachrichtigungen
 ```
 
-Neuen Termin anlegen:
+Neuen Termin erstellen:
 
 ```bash
 curl -X POST http://localhost:8080/api/termine \
   -H "Content-Type: application/json" \
-  -d '{"titel":"SWT2 Praktikum","datum":"2026-05-20","uhrzeit":"10:00"}'
+  -d '{"titel":"SWT2 Praktikum","datum":"2026-06-11","uhrzeit":"10:00"}'
 ```
+
+## 9. Entwurfsmuster
+
+| Kategorie | Muster | Umsetzung |
+|---|---|---|
+| Strukturmuster | Fassade | `StudiumFassade` |
+| Erzeugungsmuster | Fabrikmethode | `StudiumEreignisFabrik`, `TerminEreignisFabrik` |
+| Verhaltensmuster | Beobachter | `MqttTerminEreignisQuelle`, `TerminEreignisBeobachter`, `ErinnerungDienst` |
+
+Das Singleton-Muster wird nicht verwendet.
