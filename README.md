@@ -1,13 +1,13 @@
 # MyStudyApp
 
 MyStudyApp ist eine verteilte Webanwendung zur Organisation des Studiums. Die Anwendung
-bÃ¼ndelt Stundenplan, FÃ¤cher, Gruppen, Termine, Erinnerungen und Benachrichtigungen in
-einer gemeinsamen OberflÃ¤che fÃ¼r Desktop- und Laptop-Browser.
+bändelt Stundenplan, Fächer, Gruppen, Termine, Erinnerungen und Benachrichtigungen in
+einer gemeinsamen Oberfläche für Desktop- und Laptop-Browser.
 
 Das Projekt besteht aus einem Webfrontend, zwei Spring-Boot-Backends, einem MQTT-Broker
-und zwei persistenten H2-Datenbanken. Das Backend Studium Ã¼bernimmt zusÃ¤tzlich die Rolle
-eines Backends fÃ¼r das Frontend und liefert Ã¼ber eine Fassade eine gemeinsame
-StudienÃ¼bersicht.
+und zwei persistenten H2-Datenbanken. Das Backend Studium äbernimmt zusätzlich die Rolle
+eines Backends für das Frontend und liefert Ã¼ber eine Fassade eine gemeinsame
+Studienübersicht.
 
 ## Inhalt
 
